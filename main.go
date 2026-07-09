@@ -69,12 +69,12 @@ func calculateNsecs() *big.Int {
 }
 
 func TimeGooner(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	json.NewEncoder(w).Encode(map[string]*big.Int{
-		"nsecs": calculateNsecs(),
-	})
+    nsecs := calculateNsecs() 
+    w.Header().Set("Content-Type", "application/json")
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+    json.NewEncoder(w).Encode(map[string]string{
+        "nsecs": nsecs.String(),
+    })
 }
 
 func main() {
