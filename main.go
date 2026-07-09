@@ -2,13 +2,15 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+	"encoding/json"
+	"net/http"
+	"log"
 )
 
 const epochUnix = 1782086400.0
@@ -66,6 +68,33 @@ func calculateNsecs() *big.Int {
 	return nsecs
 }
 
+func TimeGooner(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	json.NewEncoder(w).Encode(map[string]*big.Int{
+		"nsecs": calculateNsecs(),
+	})
+}
+
 func main() {
-	fmt.Println(calculateNsecs())
+	http.HandleFunc("/api/its_nsecs", TimeGooner)
+	http.Handle("/", http.FileServer(http.Dir("./static")))
+
+	// HTTPS shit
+	port := ":1337"
+	certFile := "./certs/server.crt"
+	keyFile := "./certs/server.key"
+
+	log.Printf("   API: https://localhost%s/api/its_nsecs", port)
+	log.Printf("   Static: https://localhost%s/", port)
+
+	if err := http.ListenAndServeTLS(port, certFile, keyFile, nil); err != nil {
+		log.Fatal("HTTPS server error:", err)
+	}
+}
+
+func init() {
+	log.Println("starting")
+	log.Println()
 }
