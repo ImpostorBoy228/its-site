@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ITS — Specifications</title>
+</head>
+<body>
+
+<nav>
+<a href="/">Main</a> <a href="/specs.html">Specs</a> <a href="/calendar.html">Calendar</a> <a href="/astro.html">Astronomical Visualization</a> <a href="https://github.com/ImpostorBoy228/ITS">GitHub</a>
+</nav>
+<hr>
+
+<h1>ITS — Specifications</h1>
+
+<section>
+<h2>Overview</h2>
+<p>
+The ITS time system defines a custom time scale anchored to the Earth's rotation (UT1)
+and an astronomical event: the earliest nightfall in Novosibirsk, Russia
+(latitude 55.03° N, longitude 82.93° E).
+</p>
+<p>
+The zero point is not an arbitrary UTC midnight — it is the earliest astronomical
+twilight end (Sun altitude &lt; −108°) observed in Novosibirsk over the 50-year window
+1976–2026. The UT1 second-of-day of that event is stored in <code>offset.dat</code>
+(44193.792289 sec ≈ 12:16:33 UT1).
+</p>
+<p>
+ITS time is a signed integer of nanoseconds elapsed since that instant.
+It uses UT1 (Universal Time), which tracks the actual rotation of the Earth.
+The difference UT1−UTC (DUT1) is obtained from the IERS <code>finals.all</code> file
+and interpolated with a natural cubic spline to arbitrary timestamps.
+</p>
+</section>
+<hr>
+
+<section>
+<h2>Specifications Table</h2>
+<table border="1">
+<tr><th>Parameter</th><th>Value</th><th>Description</th></tr>
+<tr><td>Epoch date</td><td>2026-06-22 00:00:00 UTC</td><td>Notional UTC epoch</td></tr>
+<tr><td>Epoch offset</td><td>44193.792289 UT1 sec</td><td>Earliest nightfall → UT1 seconds of day</td></tr>
+<tr><td>True epoch start</td><td>2026-06-22 ≈12:16:33 UT1</td><td>ITS day 0 instant</td></tr>
+<tr><td>ITS day</td><td>86400 SI seconds</td><td>Counted in UT1</td></tr>
+<tr><td>ITS year</td><td>147 days (7 months)</td><td>&nbsp;</td></tr>
+<tr><td>ITS month</td><td>21 days</td><td>Numbered 0–6</td></tr>
+<tr><td>ITS week</td><td>7 days</td><td>3 weeks per month, 21 weeks per year</td></tr>
+<tr><td>Time resolution</td><td>1 nanosecond</td><td>Signed 64-bit or arbitrary-precision</td></tr>
+<tr><td>DUT1 data</td><td>IERS finals.all</td><td>Natural cubic spline interpolation</td></tr>
+<tr><td>Latitude</td><td>55.03° N</td><td>Novosibirsk, Russia</td></tr>
+<tr><td>Longitude</td><td>82.93° E</td><td>Novosibirsk, Russia</td></tr>
+<tr><td>Twilight angle</td><td>108° (astronomical)</td><td>Sun center below −108°</td></tr>
+</table>
+</section>
+<hr>
+
+<section>
+<h2>Calendar System</h2>
+<p>The calendar is purely derived from the nanosecond delta using floor division:</p>
+<ul>
+<li>1 ITS day = 86400 SI seconds</li>
+<li>1 ITS year = 147 days (7 months × 21 days)</li>
+<li>1 ITS month = 21 days (3 weeks × 7 days)</li>
+<li>1 ITS week = 7 days</li>
+</ul>
+<pre>
+days       = nsecs / 86400_000_000_000
+rem_ns     = nsecs % 86400_000_000_000
+seconds    = rem_ns / 1e9    → HH:MM:SS
+
+years      = days / 147
+r          = days % 147
+months     = r / 21
+days_rem   = r % 21
+</pre>
+<p>Years, months, days, and hours are numbered from 0.</p>
+</section>
+<hr>
+
+<section>
+<h2>DUT1 and UT1</h2>
+<p>
+The Earth's rotation is irregular. UTC uses leap seconds to stay within ±0.9 s of UT1,
+but ITS tracks UT1 directly. DUT1 = UT1 − UTC is obtained from the IERS bulletin B
+(<code>finals.all</code>). A natural cubic spline is fitted to daily MJD/DUT1 pairs
+to interpolate DUT1 at arbitrary timestamps with sub-millisecond accuracy.
+</p>
+</section>
+<hr>
+
+<section>
+<h2>How to Implement Your Own</h2>
+
+<h3>1. Get DUT1</h3>
+<p>
+Download <code>finals.all</code> from
+<a href="https://datacenter.iers.org/data/latest/finals.all">IERS data center</a>.
+Columns 8–15 contain Modified Julian Date (MJD), columns 58–67 contain DUT1
+(fractional seconds, may be negative). Build a natural cubic spline through the
+(MJD, DUT1) points.
+</p>
+
+<h3>2. Get the epoch offset</h3>
+<p>
+The epoch offset is 44193.792289 UT1 seconds of day. This is the UT1 second at which
+the earliest astronomical nightfall occurs on the epoch date. You can hardcode this
+value or compute it with the solar algorithm (see <code>common.c</code>).
+</p>
+
+<h3>3. Calculate the nanosecond delta</h3>
+<pre>
+epoch_dut1 = interpolate_dut1_spline(mjd_from_unix(EPOCH_UNIX))     // 1782086400
+now_dut1   = interpolate_dut1_spline(mjd_from_unix(current_unix_ts))
+
+epoch_start_sec = EPOCH_UNIX + epoch_dut1 + OFFSET     // OFFSET = 44193.792289
+now_ut1_sec     = current_unix_ts + now_dut1 + current_nsec / 1e9
+delta_sec       = now_ut1_sec - epoch_start_sec
+delta_ns        = floor(delta_sec * 1e9 + 0.5)
+
+// Equivalent MJD helper:
+// mjd_from_unix(t) = 40587 + floor(t / 86400)
+</pre>
+
+<h3>4. Parse into calendar</h3>
+<pre>
+day_ns  = 86400_000_000_000
+days    = delta_ns / day_ns
+rem_ns  = delta_ns % day_ns
+// floor division: if days &lt; 0 && rem_ns != 0: days--, rem_ns += day_ns
+
+sec     = rem_ns / 1e9
+hours   = floor(sec / 3600)
+minutes = floor((sec % 3600) / 60)
+seconds = floor(sec % 60)
+
+year_days = 147
+month_days = 21
+years     = days / year_days
+r         = days % year_days
+// floor: if years &lt; 0 && r != 0: years--, r += year_days
+months    = r / month_days
+day_rem   = r % month_days
+</pre>
+
+<h3>5. Format</h3>
+<pre>
+"{years}y {months}m {days_rem}d {HH}:{MM}:{SS}"
+</pre>
+
+<h3>6. Key constants</h3>
+<table border="1">
+<tr><th>Constant</th><th>Value</th></tr>
+<tr><td>EPOCH_UNIX</td><td>1782086400.0</td></tr>
+<tr><td>OFFSET</td><td>44193.792289</td></tr>
+<tr><td>ITS_DAY_NS</td><td>86400000000000</td></tr>
+<tr><td>ITS_YEAR_DAYS</td><td>147</td></tr>
+<tr><td>ITS_MONTH_DAYS</td><td>21</td></tr>
+<tr><td>LAT</td><td>55.03</td></tr>
+<tr><td>LON</td><td>82.93</td></tr>
+<tr><td>ZENITH</td><td>108.0</td></tr>
+</table>
+</section>
+<hr>
+
+<section>
+<h2>API Reference</h2>
+<table border="1">
+<tr><th>Endpoint</th><th>Method</th><th>Response</th></tr>
+<tr>
+<td><code>/api/its_nsecs</code></td>
+<td>GET</td>
+<td><code>{"nsecs":"&lt;integer string&gt;"}</code></td>
+</tr>
+</table>
+<p>The server serves static files from the <code>static/</code> directory at the root <code>/</code>.</p>
+</section>
+<hr>
+
+<footer>
+<p><a href="https://github.com/ImpostorBoy228/ITS">github.com/ImpostorBoy228/ITS</a></p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ITS — Impo Time System</title>
+</head>
+<body>
+
+<nav>
+<a href="/">Main</a> <a href="/specs.html">Specs</a> <a href="/calendar.html">Calendar</a> <a href="/astro.html">Astronomical Visualization</a> <a href="https://github.com/ImpostorBoy228/ITS">GitHub</a>
+</nav>
+<hr>
+
+<h1>Impo Time System</h1>
+
+<section>
+<h2>ITS Clock</h2>
+<div id="clock">
+<p id="years"></p>
+<p id="months"></p>
+<p id="days"></p>
+<p id="time"></p>
+<p id="nsecs"></p>
+</div>
+</section>
+<hr>
+
+<section>
+<h2>Why ITS?</h2>
+<ul>
+<li><strong>Precision</strong> — 1 nanosecond resolution, based on UT1 with DUT1 spline interpolation from IERS data</li>
+<li><strong>Convenient day scale</strong> — 1 ITS day = 86400 SI seconds, just like the civil day</li>
+<li><strong>Uniform months and years</strong> — every month is 21 days, every year is 147 days (7 months). No 28/29/30/31 chaos</li>
+<li><strong>No leap seconds</strong> — UT1-based means no UTC leap second disruptions. DUT1 is just a correction, not a jump</li>
+<li><strong>Easy conversion from system UTC</strong> — just subtract the epoch and add DUT1. Your OS clock is the input</li>
+<li><strong>Full tool set</strong> — <code>its</code> (reference), <code>itstime</code> (Unix-style), <code>its-offset</code> (offset generator), <code>itsd</code> (auto-update daemon)</li>
+<li><strong>No daylight saving time</strong> — ITS is DST-free. Always stable</li>
+<li><strong>Infinite technical lifespan</strong> — 64-bit integer gives ~292 years of nanosecond range. GMP mode goes arbitrary-precision</li>
+<li><strong>No timezones</strong> — one time for everyone. The clock reads the same worldwide</li>
+</ul>
+</section>
+<hr>
+
+<section>
+<h2>API</h2>
+<p><code>GET /api/its_nsecs</code> returns the current ITS time as nanoseconds since epoch:</p>
+<pre>
+{"nsecs":"1483762602217913"}
+</pre>
+<p>The value is an integer string (arbitrary-precision). How to parse:</p>
+<pre>
+1 ITS day  = 86400000000000 ns
+1 ITS year = 147 days
+1 ITS month = 21 days
+
+days       = nsecs / 86400000000000
+rem        = nsecs % 86400000000000
+seconds    = rem / 1e9
+HH:MM:SS   = format from seconds
+
+years      = days / 147
+r          = days % 147
+months     = r / 21
+days_rem   = r % 21
+</pre>
+</section>
+<hr>
+
+<footer>
+<p><a href="https://github.com/ImpostorBoy228/ITS">github.com/ImpostorBoy228/ITS</a></p>
+</footer>
+
+<script>
+const ITS_DAY_NS = 86400000000000n;
+const ITS_YEAR_DAYS = 147n;
+const ITS_MONTH_DAYS = 21n;
+
+const yEl = document.getElementById('years');
+const mEl = document.getElementById('months');
+const dEl = document.getElementById('days');
+const tEl = document.getElementById('time');
+const nsEl = document.getElementById('nsecs');
+
+function fmt2(n) {
+    return String(n).padStart(2, '0');
+}
+
+function parseNsecs(ns) {
+    let days = ns / ITS_DAY_NS;
+    let rem = ns % ITS_DAY_NS;
+    if (days < 0n && rem !== 0n) { days--; rem += ITS_DAY_NS; }
+    let sec = Number(rem) / 1e9;
+    let subns = Number(rem % 1000000000n);
+
+    let years = days / ITS_YEAR_DAYS;
+    let r = days % ITS_YEAR_DAYS;
+    if (years < 0n && r !== 0n) { years--; r += ITS_YEAR_DAYS; }
+    let months = r / ITS_MONTH_DAYS;
+    let daysRem = r % ITS_MONTH_DAYS;
+
+    let h = Math.floor(sec / 3600);
+    let mi = Math.floor((sec % 3600) / 60);
+    let s = Math.floor(sec % 60);
+
+    return { years, months, daysRem, h, m: mi, s, subns };
+}
+
+let baseNsecs = 0n;
+let baseTime = 0;
+
+function currentNsecs() {
+    if (baseTime === 0) return baseNsecs;
+    return baseNsecs + BigInt(Math.round((Date.now() - baseTime) * 1e6));
+}
+
+function tick() {
+    const ns = currentNsecs();
+    const { years, months, daysRem, h, m, s, subns } = parseNsecs(ns);
+    yEl.textContent = years + 'y';
+    mEl.textContent = months + 'm';
+    dEl.textContent = daysRem + 'd';
+    tEl.textContent = fmt2(h) + ':' + fmt2(m) + ':' + fmt2(s);
+    nsEl.textContent = String(subns).padStart(9, '0');
+}
+
+async function init() {
+    try {
+        const res = await fetch('/api/its_nsecs');
+        if (!res.ok) throw new Error('fetch failed');
+        const data = await res.json();
+        baseNsecs = BigInt(data.nsecs);
+        baseTime = Date.now();
+        tick();
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+init();
+
+function loop() {
+    tick();
+    requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
