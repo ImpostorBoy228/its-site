@@ -17,11 +17,8 @@
 <section>
 <h2>ITS Clock</h2>
 <div id="clock">
-<p id="years"></p>
-<p id="months"></p>
-<p id="days"></p>
-<p id="time"></p>
-<p id="nsecs"></p>
+<p id="ymd"></p>
+<p id="time+ns"></p>
 </div>
 </section>
 <hr>
@@ -76,11 +73,8 @@ const ITS_DAY_NS = 86400000000000n;
 const ITS_YEAR_DAYS = 147n;
 const ITS_MONTH_DAYS = 21n;
 
-const yEl = document.getElementById('years');
-const mEl = document.getElementById('months');
-const dEl = document.getElementById('days');
-const tEl = document.getElementById('time');
-const nsEl = document.getElementById('nsecs');
+const ymdEl = document.getElementById('ymd');
+const tnEl = document.getElementById('time+ns');
 
 function fmt2(n) {
     return String(n).padStart(2, '0');
@@ -117,17 +111,14 @@ function currentNsecs() {
 function tick() {
     const ns = currentNsecs();
     const { years, months, daysRem, h, m, s, subns } = parseNsecs(ns);
-    yEl.textContent = years + 'y';
-    mEl.textContent = months + 'm';
-    dEl.textContent = daysRem + 'd';
-    tEl.textContent = fmt2(h) + ':' + fmt2(m) + ':' + fmt2(s);
-    nsEl.textContent = String(subns).padStart(9, '0');
+    ymdEl.textContent = years + 'y ' + months + 'm ' + daysRem + 'd';
+    tnEl.textContent = fmt2(h) + ':' + fmt2(m) + ':' + fmt2(s) + '	' + String(subns).padStart(9, '0') + 'ns';
 }
 
 async function init() {
     try {
         const res = await fetch('/api/its_nsecs');
-        if (!res.ok) throw new Error('fetch failed');
+        if (!res.ok) throw new Error('fetch fucked');
         const data = await res.json();
         baseNsecs = BigInt(data.nsecs);
         baseTime = Date.now();
