@@ -77,17 +77,28 @@ func TimeGooner(w http.ResponseWriter, r *http.Request) {
     })
 }
 
+func redirectHTTP(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "https://its.impostorboy.ru"+r.URL.Path, http.StatusMovedPermanently)
+}
+
 func main() {
 	http.HandleFunc("/api/its_nsecs", TimeGooner)
 	http.Handle("/", http.FileServer(http.Dir("./static")))
 
-	// HTTPS shit
-	port := ":1337"
-	certFile := "./certs/server.crt"
-	keyFile := "./certs/server.key"
+	port := ":443"
+	certFile := "/etc/letsencrypt/live/its.impostorboy.ru/fullchain.pem"
+	keyFile := "/etc/letsencrypt/live/its.impostorboy.ru/privkey.pem"
 
-	log.Printf("   API: https://localhost%s/api/its_nsecs", port)
-	log.Printf("   Static: https://localhost%s/", port)
+	log.Printf("   API: https://its.impostorboy.ru/api/its_nsecs")
+	log.Printf("   Static: https://its.impostorboy.ru/")
+
+	go func() {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/", redirectHTTP)
+		if err := http.ListenAndServe(":80", mux); err != nil {
+			log.Fatal("HTTP redirect server error:", err)
+		}
+	}()
 
 	if err := http.ListenAndServeTLS(port, certFile, keyFile, nil); err != nil {
 		log.Fatal("HTTPS server error:", err)
