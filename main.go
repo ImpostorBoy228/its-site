@@ -14,6 +14,7 @@ const epochUnix = 1782086400.0
 
 var (
 	epochStartNs *big.Int
+	origCwd      string
 )
 
 func itsDir() string {
@@ -33,6 +34,7 @@ func init() {
 	buildSpline()
 
 	log.Println("reading offset.dat + nightfall date")
+	origCwd, _ = os.Getwd()
 	if err := os.Chdir(itsDir()); err != nil {
 		log.Fatal(err)
 	}
@@ -76,7 +78,7 @@ func redirectHTTP(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/api/its_nsecs", TimeGooner)
-	http.Handle("/", http.FileServer(http.Dir("./static")))
+	http.Handle("/", http.FileServer(http.Dir(filepath.Join(origCwd, "static"))))
 
 	port := ":443"
 	certFile := "/etc/letsencrypt/live/its.impostorboy.ru/fullchain.pem"
