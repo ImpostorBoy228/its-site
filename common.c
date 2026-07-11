@@ -76,7 +76,7 @@ void build_spline(void) {
         l[i] = h_im1 / (h_im1 + h_i);
         mu[i] = h_i / (h_im1 + h_i);
         d[i] = 2.0;
-        z[i] = 3.0 * ((b[i] - b[i-1]) / (h_im1 + h_i));
+        z[i] = 6.0 * ((b[i] - b[i-1]) / (h_im1 + h_i));
     }
     d[n-1] = 1.0; l[n-1] = 0.0; mu[n-1] = 0.0; z[n-1] = 0.0;
     // Forward sweep
