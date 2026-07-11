@@ -1,12 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"math/big"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 	"encoding/json"
 	"net/http"
@@ -14,6 +11,10 @@ import (
 )
 
 const epochUnix = 1782086400.0
+
+var (
+	epochStartNs *big.Int
+)
 
 func itsDir() string {
 	if d := os.Getenv("ITS_DIR"); d != "" {
@@ -26,55 +27,47 @@ func itsDir() string {
 	return filepath.Join(home, "its")
 }
 
-func readOffset() float64 {
-	f, err := os.Open(filepath.Join(itsDir(), "offset.dat"))
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-	s := bufio.NewScanner(f)
-	if !s.Scan() {
-		panic("offset.dat: empty")
-	}
-	v, err := strconv.ParseFloat(strings.TrimSpace(s.Text()), 64)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-func calculateNsecs() *big.Int {
+func init() {
+	log.Println("loading finals.all")
 	loadFinals(filepath.Join(itsDir(), "finals.all"))
 	buildSpline()
 
-	offset := readOffset()
+	log.Println("reading offset.dat + nightfall date")
+	if err := os.Chdir(itsDir()); err != nil {
+		log.Fatal(err)
+	}
+	offset := getOffset()
+	ey, em, ed, _ := computeEarliestNight()
+	nightMJD := jdn(ey, em, ed) - 2400000.5
+	nightDUT1 := interpolateDUT1Spline(nightMJD)
 
+	epochStartNs = new(big.Int).SetInt64(int64(epochUnix))
+	epochStartNs.Mul(epochStartNs, big.NewInt(1e9))
+	epochStartNs.Add(epochStartNs, big.NewInt(int64(nightDUT1*1e9)))
+	epochStartNs.Add(epochStartNs, big.NewInt(int64(offset*1e9)))
+
+	log.Println("ready")
+}
+
+func calculateNsecs() *big.Int {
 	now := time.Now()
-	nowUnix := now.Unix()
-	nowNsec := now.Nanosecond()
+	nowDUT1 := interpolateDUT1Spline(mjdFromUnix(now.Unix()))
 
-	epochDUT1 := interpolateDUT1Spline(mjdFromUnix(int64(epochUnix)))
-	nowDUT1 := interpolateDUT1Spline(mjdFromUnix(nowUnix))
+	nowNs := new(big.Int).SetInt64(now.Unix())
+	nowNs.Mul(nowNs, big.NewInt(1e9))
+	nowNs.Add(nowNs, big.NewInt(int64(now.Nanosecond())))
+	nowNs.Add(nowNs, big.NewInt(int64(nowDUT1*1e9)))
 
-	epochStartSec := epochUnix + epochDUT1 + offset
-	nowUT1Sec := float64(nowUnix) + nowDUT1 + float64(nowNsec)/1e9
-	deltaSec := nowUT1Sec - epochStartSec
-
-	freeEOP()
-
-	f := big.NewFloat(deltaSec * 1e9)
-	f.Add(f, big.NewFloat(0.5))
-	nsecs, _ := f.Int(nil)
-	return nsecs
+	return new(big.Int).Sub(nowNs, epochStartNs)
 }
 
 func TimeGooner(w http.ResponseWriter, r *http.Request) {
-    nsecs := calculateNsecs() 
-    w.Header().Set("Content-Type", "application/json")
-    w.Header().Set("Access-Control-Allow-Origin", "*")
-    json.NewEncoder(w).Encode(map[string]string{
-        "nsecs": nsecs.String(),
-    })
+	nsecs := calculateNsecs()
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	json.NewEncoder(w).Encode(map[string]string{
+		"nsecs": nsecs.String(),
+	})
 }
 
 func redirectHTTP(w http.ResponseWriter, r *http.Request) {
@@ -103,9 +96,4 @@ func main() {
 	if err := http.ListenAndServeTLS(port, certFile, keyFile, nil); err != nil {
 		log.Fatal("HTTPS server error:", err)
 	}
-}
-
-func init() {
-	log.Println("starting")
-	log.Println()
 }

@@ -37,7 +37,7 @@ void load_finals(const char *filename) {
         if (strncmp(line, "MJD", 3) == 0) continue;
         char mjd_str[10], dut1_str[12];
         strncpy(mjd_str, line + 7, 8); mjd_str[8] = '\0';
-        strncpy(dut1_str, line + 57, 10); dut1_str[10] = '\0';
+        strncpy(dut1_str, line + 57, 11); dut1_str[11] = '\0';
         double mjd = atof(mjd_str);
         double dut1 = atof(dut1_str);
         if (mjd > 0 && dut1 > -10 && dut1 < 10) {
@@ -103,8 +103,9 @@ double interpolate_dut1_spline(double mjd) {
     double h = mjd_arr[i+1] - mjd_arr[i];
     double t = (mjd - mjd_arr[i]) / h;
     double y0 = dut1_arr[i], y1 = dut1_arr[i+1];
+    if (!second_deriv)
+        return (1-t)*y0 + t*y1;
     double s0 = second_deriv[i], s1 = second_deriv[i+1];
-    // Cubic spline formula
     return (1-t)*y0 + t*y1 + (t*t*t - t)*((1-t)*s0 + t*s1)*h*h/6.0;
 }
 
@@ -177,7 +178,7 @@ void compute_times(int y, int m, int d, double *sunset, double *twilight_end, do
 double compute_earliest_night(int *out_y, int *out_m, int *out_d) {
     double min_twilight = 1e9;
     int best_y = 0, best_m = 0, best_d = 0;
-    for (int y = 1976; y <= 2026; y++) {
+    for (int y = 1976; y < 2026; y++) {
         for (int m = 1; m <= 12; m++) {
             int dim;
             if (m == 2) dim = (y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)) ? 29 : 28;
