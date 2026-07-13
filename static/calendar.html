@@ -88,27 +88,27 @@ function tick() {
 function renderCalendar(currentYear, currentMonth) {
 	const tbody = document.getElementById('calBody');
 	tbody.innerHTML = '';
-	days = currentYear * ITS_YEAR_DAYS + cirrentMonth * ITS_MONTH_DAYS;
+	let days = currentYear * ITS_YEAR_DAYS + currentMonth * ITS_MONTH_DAYS;
 	for (let row = 0; row < 3; row++) {
 		let tr = document.createElement('tr');
-		for (let col = 0; row < 7; row++) {
+		for (let col = 0; col < 7; col++) {
 			let td = document.createElement('td');
 			let dayNum = row * 7 + col
 			if (dayNum >= 1 && dayNum <= 21) {
                 		td.textContent = dayNum;
-                		if (year === todayYear && month === todayMonth && dayNum === Number(todayDay)) {td.className = 'today';}
+                		if (currentYear === todayYear && currentMonth === todayMonth && dayNum === Number(todayDay)) {td.className = 'today';}
 		}
 			tr.appendChild(td);
 	}
 		tbody.appendChild(tr);
 
 }
-	document.getElementById('itsDate').textContent = `ITS: ${year}y ${month}m`;
+	document.getElementById('itsDate').textContent = `ITS: ${currentYear}y ${currentMonth}m`;
 
 const gregDate = new Date();
 
-const gregYear = currentDate.getFullYear();
-const gregMonth = currentDate.getMonth(); 
+const gregYear = gregDate.getFullYear();
+const gregMonth = gregDate.getMonth(); 
 
 document.getElementById('gregDate').textContent = `Gregorian: ${gregYear}y ${gregMonth}m`;
 }
@@ -152,9 +152,6 @@ async function init() {
         currentMonth = todayMonth;
         renderCalendar(currentYear, currentMonth);
     });
-}
-
-
 }
 
 init();
