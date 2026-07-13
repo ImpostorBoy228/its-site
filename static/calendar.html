@@ -94,7 +94,7 @@ function renderCalendar(currentYear, currentMonth) {
 		for (let col = 0; col < 7; col++) {
 			let td = document.createElement('td');
 			let dayNum = row * 7 + col
-			if (dayNum >= 1 && dayNum <= 21) {
+			if (dayNum >= 0 && dayNum <= 20) {
                 		td.textContent = dayNum;
                 		if (currentYear === todayYear && currentMonth === todayMonth && dayNum === Number(todayDay)) {td.className = 'today';}
 		}
