@@ -117,6 +117,8 @@ function tick() {
 
 async function init() {
     try {
+	ymdEl.textContent = 'loading...';
+	tnEl.textContent = '0xDEADBEEF';
         const res = await fetch('/api/its_nsecs');
         if (!res.ok) throw new Error('fetch fucked');
         const data = await res.json();

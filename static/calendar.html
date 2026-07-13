@@ -1,0 +1,166 @@
+<!-- 20d, 14:30 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ITS Calendar</title>
+<style>
+  body { font-family: sans-serif; max-width: 800px; margin: 2em auto; padding: 0 1em; }
+  nav a { margin-right: 1em; }
+  .calendar { border-collapse: collapse; margin: 1em 0; }
+  .calendar td, .calendar th { border: 1px solid #ccc; padding: 0.5em 1em; text-align: center; }
+  .today { background: #ffd; font-weight: bold; }
+  .controls { margin: 1em 0; }
+  .controls button { padding: 0.3em 1em; margin-right: 0.5em; }
+  .info { background: #f4f4f4; padding: 0.5em 1em; border-radius: 4px; }
+</style>
+</head>
+<body>
+<nav>
+  <a href="/">Main</a> <a href="/specs.html">Specs</a> <a href="/calendar.html">Calendar</a>
+  <a href="/astro.html">Astronomical Visualization</a>
+  <a href="https://impostorboy.ru">About dev</a>
+</nav>
+<hr>
+
+<h1>ITS Calendar</h1>
+
+<div id="controls" class="controls">
+  <button id="prevMonth">&lt;- Month</button>
+  <button id="nextMonth">Month -&gt;</button>
+  <button id="prevYear">&lt;- Year</button>
+  <button id="nextYear">Year -&gt;</button>
+  <button id="todayBtn">Today</button>
+</div>
+
+<div id="info" class="info">
+  <span id="itsDate"></span> &nbsp;|&nbsp; <span id="gregDate"></span>
+</div>
+
+<table class="calendar" id="calTable">
+  <thead><tr><th>iMon</th><th>iTue</th><th>iWed</th><th>iThu</th><th>iFri</th><th>iSat</th><th>iSun</th></tr></thead>
+  <tbody id="calBody"></tbody>
+</table>
+
+<footer><p><a href="https://github.com/ImpostorBoy228/ITS">github.com/ImpostorBoy228/ITS</a></p></footer>
+
+<script>
+
+const ITS_DAY_NS = 86400000000000n;  const ITS_YEAR_DAYS = 147n;   const ITS_MONTH_DAYS = 21n;
+
+let currentYear = 0n;
+let currentMonth = 0n;
+let todayYear = 0n;
+let todayMonth = 0n;
+let todayDay = 0n;
+
+function parseNsecs(ns) {
+    let days = ns / ITS_DAY_NS;
+    let rem = ns % ITS_DAY_NS;
+    if (days < 0n && rem !== 0n) { days--; rem += ITS_DAY_NS; }
+
+    let years = days / ITS_YEAR_DAYS;
+    let r = days % ITS_YEAR_DAYS;
+    if (years < 0n && r !== 0n) { years--; r += ITS_YEAR_DAYS; }
+    let months = r / ITS_MONTH_DAYS;
+    let daysRem = r % ITS_MONTH_DAYS;
+
+    return { years, months, daysRem};
+}
+
+let baseNsecs = 0n;
+let baseTime = 0;
+
+function currentNsecs() {
+    if (baseTime === 0) return baseNsecs;
+    return baseNsecs + BigInt(Math.round((Date.now() - baseTime) * 1e6));
+}
+
+function tick() {
+    const ns = currentNsecs();
+    const { years, months, daysRem } = parseNsecs(ns);
+    todayYear = years;
+    todayMonth = months;
+    todayDay = daysRem;
+}
+
+function renderCalendar(currentYear, currentMonth) {
+	const tbody = document.getElementById('calBody');
+	tbody.innerHTML = '';
+	days = currentYear * ITS_YEAR_DAYS + cirrentMonth * ITS_MONTH_DAYS;
+	for (let row = 0; row < 3; row++) {
+		let tr = document.createElement('tr');
+		for (let col = 0; row < 7; row++) {
+			let td = document.createElement('td');
+			let dayNum = row * 7 + col
+			if (dayNum >= 1 && dayNum <= 21) {
+                		td.textContent = dayNum;
+                		if (year === todayYear && month === todayMonth && dayNum === Number(todayDay)) {td.className = 'today';}
+		}
+			tr.appendChild(td);
+	}
+		tbody.appendChild(tr);
+
+}
+	document.getElementById('itsDate').textContent = `ITS: ${year}y ${month}m`;
+
+const gregDate = new Date();
+
+const gregYear = currentDate.getFullYear();
+const gregMonth = currentDate.getMonth(); 
+
+document.getElementById('gregDate').textContent = `Gregorian: ${gregYear}y ${gregMonth}m`;
+}
+
+
+async function init() {
+    try {
+        const res = await fetch('/api/its_nsecs');
+        if (!res.ok) throw new Error('fetch fucked');
+        const data = await res.json();
+        baseNsecs = BigInt(data.nsecs);
+        baseTime = Date.now();
+    } catch (err) {
+        console.error(err);
+    }
+        tick();                    
+        currentYear = todayYear;
+        currentMonth = todayMonth;
+        renderCalendar(currentYear, currentMonth);
+
+    document.getElementById('prevMonth').addEventListener('click', () => {
+        if (currentMonth === 0n) { currentYear--; currentMonth = 6n; }
+        else currentMonth--;
+        renderCalendar(currentYear, currentMonth);
+    });
+    document.getElementById('nextMonth').addEventListener('click', () => {
+        if (currentMonth === 6n) { currentYear++; currentMonth = 0n; }
+        else currentMonth++;
+        renderCalendar(currentYear, currentMonth);
+    });
+    document.getElementById('prevYear').addEventListener('click', () => {
+        currentYear--;
+        renderCalendar(currentYear, currentMonth);
+    });
+    document.getElementById('nextYear').addEventListener('click', () => {
+        currentYear++;
+        renderCalendar(currentYear, currentMonth);
+    });
+    document.getElementById('todayBtn').addEventListener('click', () => {
+        currentYear = todayYear;
+        currentMonth = todayMonth;
+        renderCalendar(currentYear, currentMonth);
+    });
+}
+
+
+}
+
+init();
+
+
+
+</script>
+</body>
+</html>
