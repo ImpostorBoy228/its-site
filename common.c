@@ -12,6 +12,31 @@ static double *mjd_arr = NULL;
 static double *dut1_arr = NULL;
 static int n_eop = 0;
 static double *second_deriv = NULL;   // for cubic spline
+#define DEG (M_PI / 180.0)
+static double epsilon = 23.4393*DEG;
+
+Vec3 getSun(double mjd) {
+    double n = mjd - 51544.5;
+    double L = fmod(280.460 + 0.9856474 * n, 360.0) * DEG;
+    double g_deg = fmod(357.528 + 0.9856003 * n, 360.0);
+    double g = g_deg * DEG;
+    double lambda = L
+              + (1.915 * DEG) * sin(g)
+              + (0.020 * DEG) * sin(2 * g);
+
+    return (Vec3){cos(lambda), cos(epsilon)*sin(lambda), sin(epsilon)*sin(lambda)};
+}
+
+Vec3 getNsk(double mjd) {
+    double n = mjd - 51544.5;
+    double phi = LAT * DEG;
+    double lambda = LON * DEG;
+    double theta = (280.46061837 + 360.98564736629 * n) * DEG;
+    double x = cos(phi) * cos(lambda + theta);
+    double y = cos(phi) * sin(lambda + theta);
+    double z = sin(phi);
+    return (Vec3){x, y, z};
+}
 
 double mjd_from_unix(time_t t) {
     return (double)t / SECS_PER_DAY + 40587.0;   // 1970-01-01 = MJD 40587
@@ -109,9 +134,7 @@ double interpolate_dut1_spline(double mjd) {
     return (1-t)*y0 + t*y1 + (t*t*t - t)*((1-t)*s0 + t*s1)*h*h/6.0;
 }
 
-// ------------------------------------------------------------------
 // Astronomy: Julian Date, Sun position, hour angle, twilight times
-// ------------------------------------------------------------------
 double jdn(int y, int m, int d) {
     if (m <= 2) { y--; m += 12; }
     int A = y / 100;
@@ -221,9 +244,7 @@ double get_offset(void) {
     exit(1);
 }
 
-// ------------------------------------------------------------------
 // formatting helpers
-// ------------------------------------------------------------------
 void format_time(double sec, char *buf, size_t size) {
     int h = (int)(sec / 3600);
     int m = (int)(fmod(sec, 3600) / 60);

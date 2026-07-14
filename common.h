@@ -32,6 +32,12 @@
    A year = 7 months. Months/years are numbered from 0.
    ------------------------------------------------------------------ */
 
+typedef struct { double x, y, z; } Vec3;
+
+// Sun and observer position vectors (unit vectors, equatorial frame)
+Vec3 getSun(double mjd);
+Vec3 getNsk(double mjd);
+
 #define LAT 55.03
 #define LON 82.93            // Novosibirsk
 #define ZENITH 108.0
